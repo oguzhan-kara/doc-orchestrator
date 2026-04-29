@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document AI Orchestrator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+
+    .container { max-width: 860px; margin: 0 auto; }
+
+    header { margin-bottom: 36px; }
+    header h1 { font-size: 22px; font-weight: 600; color: #f8fafc; }
+    header p  { margin-top: 4px; font-size: 13px; color: #64748b; }
+
+    /* ── Card ── */
+    .card {
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 16px;
+    }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+    .tab {
+      padding: 7px 18px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #64748b;
+      transition: all .15s;
+    }
+    .tab.active { background: #334155; color: #f1f5f9; border-color: #475569; }
+    .tab:hover:not(.active) { color: #94a3b8; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Form elements ── */
+    textarea, input[type="file"] {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 7px;
+      color: #e2e8f0;
+      font-size: 13px;
+      padding: 12px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    textarea { resize: vertical; min-height: 160px; font-family: inherit; line-height: 1.6; }
+    textarea:focus, input[type="file"]:focus { border-color: #6366f1; }
+
+    .file-drop {
+      border: 1.5px dashed #2d3148;
+      border-radius: 7px;
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .file-drop:hover { border-color: #6366f1; background: #1a1f35; }
+    .file-drop input { display: none; }
+    .file-drop .icon { font-size: 28px; margin-bottom: 8px; }
+    .file-drop p { font-size: 13px; color: #64748b; }
+    .file-drop p span { color: #6366f1; cursor: pointer; }
+    .file-name { margin-top: 10px; font-size: 12px; color: #6366f1; }
+
+    /* ── Button ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      padding: 10px 22px;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn:hover { background: #4f46e5; }
+    .btn:disabled { background: #374151; color: #6b7280; cursor: not-allowed; }
+
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      display: none;
+    }
+    .btn.loading .spinner { display: block; }
+    .btn.loading .btn-text::after { content: "Processing…"; }
+    .btn.loading .btn-label { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Result ── */
+    #result { display: none; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .status-success { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+    .status-flagged { background: #431407; color: #fb923c; border: 1px solid #9a3412; }
+    .status-failed  { background: #1c0a0a; color: #f87171; border: 1px solid #7f1d1d; }
+
+    .fields-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    @media (max-width: 540px) { .fields-grid { grid-template-columns: 1fr; } }
+
+    .field-card {
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .field-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+    .field-value { font-size: 15px; color: #f1f5f9; font-weight: 500; word-break: break-word; }
+    .field-value.empty { color: #374151; font-style: italic; font-size: 13px; }
+
+    .result-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .meta-right { font-size: 12px; color: #475569; }
+
+    /* ── History table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left;
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      border-bottom: 1px solid #2d3148;
+    }
+    td { padding: 10px; border-bottom: 1px solid #1a1f2e; color: #cbd5e1; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #1a1f2e; }
+
+    .empty-state { text-align: center; padding: 40px; color: #374151; font-size: 13px; }
+
+    .refresh-btn {
+      background: none;
+      border: 1px solid #2d3148;
+      color: #64748b;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      float: right;
+      transition: all .15s;
+    }
+    .refresh-btn:hover { border-color: #6366f1; color: #6366f1; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Document AI Orchestrator</h1>
+    <p>Extract structured data from invoices and contracts using Claude.</p>
+  </header>
+
+  <!-- Input card -->
+  <div class="card">
+    <div class="card-title">Input</div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('text')">Paste Text</button>
+      <button class="tab"        onclick="switchTab('file')">Upload File</button>
+    </div>
+
+    <!-- Text panel -->
+    <div id="panel-text" class="tab-panel active">
+      <textarea id="text-input" placeholder="Paste invoice or contract text here…"></textarea>
+      <button class="btn" id="btn-text" onclick="submitText()">
+        <div class="spinner"></div>
+        <span class="btn-label">Extract</span>
+      </button>
+    </div>
+
+    <!-- File panel -->
+    <div id="panel-file" class="tab-panel">
+      <div class="file-drop" onclick="document.getElementById('file-input').click()">
+        <div class="icon">📄</div>
+        <p>Drop a PDF or .txt file here, or <span>browse</span></p>
+        <div class="file-name" id="file-name"></div>
+        <input type="file" id="file-input" accept=".pdf,.txt" onchange="onFileChange(this)" />
+      </div>
+      <button class="btn" id="btn-file" onclick="submitFile()">
+        <div class="spinner"></div>
+        <span class="btn-label">Extract</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Result card -->
+  <div class="card" id="result">
+    <div class="result-meta">
+      <div class="card-title" style="margin-bottom:0">Result</div>
+      <span id="result-status"></span>
+    </div>
+    <div class="meta-right" id="result-meta-right"></div>
+    <div class="fields-grid" id="fields-grid"></div>
+  </div>
+
+  <!-- History card -->
+  <div class="card">
+    <div class="card-title">
+      Recent Documents
+      <button class="refresh-btn" onclick="loadHistory()">↻ Refresh</button>
+    </div>
+    <div id="history-container">
+      <div class="empty-state">No documents yet.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const API = '';
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', (i === 0) === (name === 'text'));
+    });
+    document.getElementById('panel-text').classList.toggle('active', name === 'text');
+    document.getElementById('panel-file').classList.toggle('active', name === 'file');
+  }
+
+  function onFileChange(input) {
+    const name = input.files[0]?.name || '';
+    document.getElementById('file-name').textContent = name;
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+  async function submitText() {
+    const text = document.getElementById('text-input').value.trim();
+    if (!text) return alert('Please paste some document text first.');
+    await runExtraction(() =>
+      fetch(`${API}/ingest/text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, filename: 'inline.txt' }),
+      })
+    , 'btn-text');
+  }
+
+  async function submitFile() {
+    const file = document.getElementById('file-input').files[0];
+    if (!file) return alert('Please select a file first.');
+    const form = new FormData();
+    form.append('file', file);
+    await runExtraction(() =>
+      fetch(`${API}/ingest/file`, { method: 'POST', body: form })
+    , 'btn-file');
+  }
+
+  async function runExtraction(fetchFn, btnId) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = true;
+    btn.classList.add('loading');
+    try {
+      const res  = await fetchFn();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Unknown error');
+      showResult(data);
+      loadHistory();
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+    }
+  }
+
+  // ── Result rendering ──────────────────────────────────────────────────────
+  const FIELD_LABELS = {
+    vendor: 'Vendor',
+    amount: 'Amount',
+    date: 'Date',
+    due_date: 'Due Date',
+    category: 'Category',
+    invoice_number: 'Invoice #',
+  };
+
+  function showResult(doc) {
+    document.getElementById('result').style.display = 'block';
+
+    const statusEl = document.getElementById('result-status');
+    statusEl.innerHTML = `<span class="status-badge status-${doc.status}">${doc.status}</span>`;
+
+    document.getElementById('result-meta-right').textContent =
+      `ID #${doc.id} · ${doc.filename} · retries: ${doc.retry_count} · min confidence: ${(doc.min_confidence * 100).toFixed(0)}%`;
+
+    const grid = document.getElementById('fields-grid');
+    grid.innerHTML = Object.entries(FIELD_LABELS).map(([key, label]) => {
+      const val = doc[key];
+      return `
+        <div class="field-card">
+          <div class="field-label">${label}</div>
+          <div class="field-value ${val ? '' : 'empty'}">${val || 'not found'}</div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ── History ───────────────────────────────────────────────────────────────
+  async function loadHistory() {
+    try {
+      const res  = await fetch(`${API}/results?limit=20`);
+      const docs = await res.json();
+      renderHistory(docs);
+    } catch {
+      document.getElementById('history-container').innerHTML =
+        '<div class="empty-state">Could not load history.</div>';
+    }
+  }
+
+  function renderHistory(docs) {
+    const container = document.getElementById('history-container');
+    if (!docs.length) {
+      container.innerHTML = '<div class="empty-state">No documents yet.</div>';
+      return;
+    }
+    container.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>File</th><th>Vendor</th><th>Amount</th>
+            <th>Category</th><th>Status</th><th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${docs.map(d => `
+            <tr>
+              <td>${d.id}</td>
+              <td>${d.filename}</td>
+              <td>${d.vendor || '—'}</td>
+              <td>${d.amount || '—'}</td>
+              <td>${d.category || '—'}</td>
+              <td><span class="status-badge status-${d.status}">${d.status}</span></td>
+              <td>${d.created_at?.slice(0, 10) || '—'}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  // init
+  loadHistory();
+</script>
+</body>
+</html>

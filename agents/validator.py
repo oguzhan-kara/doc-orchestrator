@@ -4,6 +4,10 @@ from models.schema import DocumentExtraction
 CONFIDENCE_PASS = 0.7
 CONFIDENCE_FLAG = 0.4
 MAX_RETRIES = 2
+MIN_CORE_FIELDS = 2  # at least 2 of (vendor, amount, date) must be extracted
+
+# Fields that must be present for a document to be considered meaningful
+_CORE_FIELDS = ["vendor", "amount", "date"]
 
 
 def route(
@@ -13,9 +17,9 @@ def route(
     """
     Decide next action based on field-level confidence.
 
-    retry        → at least one field is below PASS threshold and we have retries left
-    store_flagged → below FLAG threshold or retries exhausted
-    store_success → all present fields meet the PASS threshold
+    retry        → core fields missing or low confidence, retries remaining
+    store_flagged → too few core fields extracted, or retries exhausted
+    store_success → enough core fields present and all pass confidence threshold
     """
     fields = [
         extraction.vendor,
@@ -29,6 +33,19 @@ def route(
 
     if not present_confidences:
         return "store_flagged"
+
+    # Count how many core fields were actually extracted
+    core_values = [
+        getattr(extraction, name).value
+        for name in _CORE_FIELDS
+    ]
+    extracted_core = sum(1 for v in core_values if v is not None)
+
+    # Flag immediately if the document is too sparse to be useful
+    if extracted_core < MIN_CORE_FIELDS:
+        if retry_count >= MAX_RETRIES:
+            return "store_flagged"
+        return "retry"
 
     min_conf = min(present_confidences)
 

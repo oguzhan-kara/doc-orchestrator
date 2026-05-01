@@ -63,6 +63,29 @@ class TestValidator:
         )
         assert route(ext, retry_count=0) == "store_flagged"
 
+    def test_sparse_document_with_only_category_triggers_retry(self):
+        # Ambiguous contract: only category extracted, core fields missing
+        ext = DocumentExtraction(
+            vendor=FieldExtraction(value=None, confidence=0.0),
+            amount=FieldExtraction(value=None, confidence=0.0),
+            date=FieldExtraction(value=None, confidence=0.0),
+            due_date=FieldExtraction(value=None, confidence=0.0),
+            category=FieldExtraction(value="contract", confidence=0.95),
+            invoice_number=FieldExtraction(value=None, confidence=0.0),
+        )
+        assert route(ext, retry_count=0) == "retry"
+
+    def test_sparse_document_retries_exhausted_returns_flagged(self):
+        ext = DocumentExtraction(
+            vendor=FieldExtraction(value=None, confidence=0.0),
+            amount=FieldExtraction(value=None, confidence=0.0),
+            date=FieldExtraction(value=None, confidence=0.0),
+            due_date=FieldExtraction(value=None, confidence=0.0),
+            category=FieldExtraction(value="contract", confidence=0.95),
+            invoice_number=FieldExtraction(value=None, confidence=0.0),
+        )
+        assert route(ext, retry_count=MAX_RETRIES) == "store_flagged"
+
 
 class TestIngestion:
     def test_ingest_text_strips_whitespace(self):

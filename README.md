@@ -157,6 +157,45 @@ Health check.
 
 Swagger UI available at `http://localhost:8000/docs`.
 
+---
+
+## What's next — production version
+
+The current pipeline uses a single extraction agent with a generic prompt. The natural evolution is a **classifier → skill executor → critic** pattern:
+
+```
+ingest
+  ↓
+classifier agent       reads the document, returns document type
+  ↓
+executor agent         loads the matching skill (prompt + schema)
+  ├── invoice_skill    vendor, amount, dates, line items
+  ├── contract_skill   parties, obligations, effective date, termination
+  └── receipt_skill    minimal extraction
+  ↓
+critic agent           scores output quality, retries with a different skill if needed
+  ↓
+store
+```
+
+Each skill is just two files — a markdown prompt and a Pydantic schema:
+
+```
+prompts/skills/
+├── invoice_skill.md
+├── contract_skill.md
+└── receipt_skill.md
+
+models/skills/
+├── invoice_schema.py
+├── contract_schema.py
+└── receipt_schema.py
+```
+
+Adding a new document type means adding one prompt file and one schema — the orchestration logic stays untouched. This is the core discipline: **prompts are data, not code**. The LangGraph graph routes dynamically based on the classifier's output, and the critic agent can fall back to a different skill if confidence is low.
+
+Other production additions: async processing with a task queue (Celery + Redis), LangSmith tracing for every agent call, a human-in-the-loop checkpoint for flagged documents, and a multi-tenant storage layer.
+
 ## Running tests
 
 ```bash
